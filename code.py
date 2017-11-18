@@ -8,6 +8,8 @@ import cv2
 import random
 import numpy as np
 from sklearn.metrics import silhouette_samples, silhouette_score
+import matplotlib.image as mpimg
+import os
 
 # construct the argument parser and parse the arguments
 # ap = argparse.ArgumentParser()
@@ -18,25 +20,23 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 # load the image and convert it from BGR to RGB so that
 # we can dispaly it with matplotlib
 
-#images for dataset few of them
-image1 = cv2.imread("193000.jpg")
-image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
-image2 = cv2.imread("29002.jpg")
-image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
-image3 = cv2.imread("193039.jpg")
-image3 = cv2.cvtColor(image3, cv2.COLOR_BGR2RGB)
+#load the images from the database
+def load_images(folder):
+    images = []
+    imageFileNames = []
+    for filename in os.listdir(folder):
+        img = mpimg.imread(os.path.join(folder, filename))
+        if img is not None:
+            imageFileNames.append(filename)
+            images.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    return images,imageFileNames
 
+images,imageFileNames = load_images("./database/")
 
 #query image
-imageq = cv2.imread("29012.jpg")
+imageq = cv2.imread("query.jpg")
 imageq = cv2.cvtColor(imageq, cv2.COLOR_BGR2RGB)
-
-
-#list of all images
-
-images=[image1,image2,image3,imageq]
-
-
+images.append(imageq)
 
 #global values to find the random shifts to make
 
@@ -85,7 +85,7 @@ for image in images:
         labelsP = ImgClt[imageCount].fit_predict(image)
         silScore = silhouette_score(image,labelsP)
         print silScore, "center: ",centers
-        if Prevscore - silScore < .02:
+        if Prevscore - silScore < .01:
             count+=1
             if count == 1:
                 ElbowPoint = centers - 1
@@ -168,10 +168,7 @@ for image in images:
 	velist.append(ve)
 	y+=1
 
-res=99999999999999999
-pos=-1
-
-for i in velist:
+for i in range(0,len(velist)-1):
 	#print len(i)
 	#print the f(p) - f(q) for each image for comparison
-	print np.sum(np.absolute(np.subtract(np.array(i),np.array(velist[3]))))
+	print "filename ",imageFileNames[i]," ,diff from query: ",np.sum(np.absolute(np.subtract(np.array(i),np.array(velist[len(velist)-1]))))
