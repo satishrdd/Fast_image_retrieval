@@ -1,5 +1,3 @@
-#required libraries
-
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import argparse
@@ -10,17 +8,24 @@ import numpy as np
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.image as mpimg
 import os
+import math
 
-# construct the argument parser and parse the arguments
-# ap = argparse.ArgumentParser()
-# ap.add_argument("-c", "--clusters", required = True, type = int,
-# 	help = "# of clusters")
-# args = vars(ap.parse_args())
+def formula(cubeX,cubeY,cubeZ,sidelen,xshift,yshift,zshift):
+    xc = math.ceil(((xshift%sidelen) + cubeX + 1)*1.0/sidelen)
+    yc = math.ceil(((yshift%sidelen) + cubeY + 1)*1.0/sidelen)
+    zc = math.ceil(((zshift%sidelen) + cubeZ + 1)*1.0/sidelen)
+    yd = math.ceil((256+yshift%sidelen)*1.0/sidelen)
+    zd = math.ceil((256+zshift%sidelen)*1.0/sidelen)
+    xd = math.ceil((256+xshift%sidelen)*1.0/sidelen)
+    offset = 0
+    for side in range(0,int(math.log(sidelen,2))):
+        yp = math.ceil((256+yshift%(2**side))*1.0/((2**side)))
+        zp = math.ceil((256+zshift%(2**side))*1.0/(2**side))
+        xp = math.ceil((256+xshift%(2**side))*1.0/(2**side))
+        offset += xp*yp*zp
+    #offset = int(math.log(sidelen,2))*xd*yd*zd
+    return int(offset + (xc - 1)*yd*zd + (yc-1)*zd + zc - 1)
 
-# load the image and convert it from BGR to RGB so that
-# we can dispaly it with matplotlib
-
-#load the images from the database
 def load_images(folder):
     images = []
     imageFileNames = []
@@ -39,15 +44,6 @@ imageq = cv2.cvtColor(imageq, cv2.COLOR_BGR2RGB)
 images.append(imageq)
 
 #global values to find the random shifts to make
-
-fxmin=9999
-fymin=9999
-fzmin=9999
-fxmax=0
-fymax=0
-fzmax=0
-fmaxl=0
-# show our image
 
 '''
 store clt of every image in this:
@@ -85,7 +81,7 @@ for image in images:
         labelsP = ImgClt[imageCount].fit_predict(image)
         silScore = silhouette_score(image,labelsP)
         print silScore, "center: ",centers
-        if Prevscore - silScore < .01:
+        if Prevscore - silScore < .02:
             count+=1
             if count == 1:
                 ElbowPoint = centers - 1
@@ -104,71 +100,56 @@ for image in images:
     print ImgClt[imageCount].cluster_centers_
     print len(ImgClt[imageCount].labels_)
 
-    xmax=0
-    xmin=256
-    ymin=256
-    ymax=0
-    zmin=256
-    zmax=0
-
-    #finding the border points of the image represented in cluster
-    for points in ImgClt[imageCount].cluster_centers_:
-    	xmax = max(xmax,points[0])
-    	xmin = min(xmin,points[0])
-    	ymax = max(ymax,points[1])
-    	ymin = min(ymin,points[1])
-    	zmax = max(zmax,points[2])
-    	zmin = min(zmin,points[2])
-    fxmin = min(fxmin,xmin)
-    fxmax = max(fxmax,xmax)
-    fymin = min(fymin,ymin)
-    fymax = max(fymax,ymax)
-    fzmin = min(fzmin,zmin)
-    fzmax = max(fzmax,zmax)
-    print xmax,xmin
-
-
     #finding the approximate diameter
-    delta = int(max(xmax-xmin,max(ymax-ymin,zmax-zmin)))
 
     labelc = [0]*(n_cluster)
     for i in ImgClt[imageCount].labels_:
     	labelc[i]+=1
     flabels.append(labelc)
-
-    maxl = max(xmax,max(ymax,zmax))
-    fmaxl = max(fmaxl,maxl)
     imageCount+=1
 
 #finding the unique random shift after running through all images
 
-xshift = int(random.uniform(0,int(fxmin)))
-yshift = int(random.uniform(0,int(fymin)))
-zshift = int(random.uniform(0,int(fzmin)))
-y=0
+xshift = int(random.uniform(0,255))
+yshift = int(random.uniform(0,255))
+zshift = int(random.uniform(0,255))
+
+print "Done Creating Cube Embedding, moving on to finding number of points in each cube"
+
+'''
+try to store the values per id obtained for cubes above in this
+'''
+
+imageId = 0
+
+velist = []
+
 for image in images:
-	grid=[[[0]*(10*int(fmaxl)+1)]*(10*int(fmaxl)+1)]*(10*int(fmaxl)+1)
-	sidelen=1
-	ve = []
-	#embedding using various side lengths
-	while sidelen<=fmaxl:
-		for i in range(xshift,int(fxmax)+(sidelen-(int(fxmax)-xshift)%sidelen)%sidelen,sidelen):
-			#print i
-			for j in range(yshift,int(fymax)+(sidelen-(int(fymax)-yshift)%sidelen)%sidelen,sidelen):
-				for k in range(zshift,int(fzmax)+(sidelen-(int(fzmax)-zshift)%sidelen)%sidelen,sidelen):
-					l=0
-					for points in ImgClt[y].cluster_centers_:
-						if points[0]>=i and points[0]<i+1 and points[1]>=j and points[1]<j+1 and points[2]>=k and points[2]<k+1:
-							grid[i][j][k] += flabels[y][l]
-						l+=1
-					ve.append(grid[i][j][k]*sidelen)
-		sidelen*=2
+    sidelen = 1
+    mappingPointsToCube = [0]*(256*256*256*9)
+    while sidelen<=255:
+        for points in ImgClt[imageId].cluster_centers_:
+            [x,y,z] = points
+            CubeX = int(x/sidelen)*sidelen + (sidelen-(xshift%sidelen))%sidelen
+            CubeY = int(y/sidelen)*sidelen + (sidelen-(yshift%sidelen))%sidelen
+            CubeZ = int(z/sidelen)*sidelen + (sidelen-(zshift%sidelen))%sidelen
+            mappingPointsToCube[formula(CubeX,CubeY,CubeZ,sidelen,xshift,yshift,zshift)]+=(sidelen)
+        sidelen*=2
+    velist.append(mappingPointsToCube)
 
+    imageId+=1
 
-	velist.append(ve)
-	y+=1
+print "Embedding for each image complete.! check once for speed"
 
-for i in range(0,len(velist)-1):
+for i in range(0,len(velist)):
 	#print len(i)
 	#print the f(p) - f(q) for each image for comparison
-	print "filename ",imageFileNames[i]," ,diff from query: ",np.sum(np.absolute(np.subtract(np.array(i),np.array(velist[len(velist)-1]))))
+	print "diff from query: ",np.sum(np.absolute(np.subtract(np.array(velist[i]),np.array(velist[len(velist)-1]))))
+
+veq = velist.pop()
+psdL1_mat = libpylshbox.psdlsh()
+psdL1_mat.init_mat(velist, '', 2, 1, 1, 5)
+result = psdL1_mat.query(veq, 2, 10)
+indices, dists = result[0], result[1]
+for i in range(len(indices)):
+    print indices[i], '\t', dists[i]
