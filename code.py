@@ -10,6 +10,11 @@ import matplotlib.image as mpimg
 import os
 import math
 
+'''
+    A formula to determine the id of starting point of a left top most corner
+    of a cube
+'''
+
 def formula(cubeX,cubeY,cubeZ,sidelen,xshift,yshift,zshift):
     xc = math.ceil(((xshift%sidelen) + cubeX + 1)*1.0/sidelen)
     yc = math.ceil(((yshift%sidelen) + cubeY + 1)*1.0/sidelen)
@@ -26,6 +31,11 @@ def formula(cubeX,cubeY,cubeZ,sidelen,xshift,yshift,zshift):
     #offset = int(math.log(sidelen,2))*xd*yd*zd
     return int(offset + (xc - 1)*yd*zd + (yc-1)*zd + zc - 1)
 
+'''
+    Gets the image and filename from a particular folder 'folder'
+    and stores the rgb values of that image and its name in a vector
+'''
+
 def load_images(folder):
     images = []
     imageFileNames = []
@@ -36,120 +46,150 @@ def load_images(folder):
             images.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     return images,imageFileNames
 
+'''
+    creates a mapping from image to number of clusters
+    where its silhoute score of optimum
+    and clusters that image with those number of clusters
+    Another approach could be to store clt objects also
+    in a file , but it all depends on tradeoff
+'''
+
+def createMappingOfImageToNClusters():
+    fil = open('database.txt','r')
+    fileClusterMap = {}
+    #for dataset images
+    for line in fil:
+        fileClusterMap[line.split(' ')[0]] = int(line.split(' ')[1])
+    #for query images
+    fil = open('query.txt','r')
+    for line in fil:
+        fileClusterMap[line.split(' ')[0]] = int(line.split(' ')[1])
+    return fileClusterMap
+
+'''
+    gets some of the stats as mentioned in the paper like
+    average number of clusters per image, but this can be changed on
+    the basis of how and when elbow point is chosen
+    or other approaches like density based clustering may solve the issue
+'''
+def getStats(fileClusterMap):
+    meanNumberOfClusters = np.mean(np.array(fileClusterMap.values()))
+    print "Average clusters per image: ",meanNumberOfClusters
+    return
+
+'''
+    This determines the randomshifting of grids
+'''
+def getRandomShifts():
+    return (int(random.uniform(0,255)),int(random.uniform(0,255)),int(random.uniform(0,255)))
+
+'''
+    Get the flabel weights and ImageClt objects for all images
+'''
+def getFlablesAndImageClt(images,imageFileNames,fileClusterMap):
+    imageCount = 0
+    flabels =[]
+    #store clt(object) of every image in this:
+    ImgClt = {}
+    for image in images:
+        if imageCount>100:
+            break
+        image = image.reshape((image.shape[0] * image.shape[1], 3))
+        if imageFileNames[imageCount] not in fileClusterMap.keys():
+            print imageFileNames[imageCount] ," doen't have a mapping in pre processed data"
+            imageCount+=1
+            continue
+        n_cluster = fileClusterMap[imageFileNames[imageCount]]
+        ImgClt[imageCount] = KMeans(n_clusters = n_cluster)
+        ImgClt[imageCount].fit(image)
+        print imageFileNames[imageCount],'n_cluster:',n_cluster,'imageCount:',imageCount,'/',len(images)
+        #finding the approximate diameter
+
+        labelc = [0]*(n_cluster)
+        for i in ImgClt[imageCount].labels_:
+        	labelc[i]+=1
+        flabels.append(labelc)
+        imageCount+=1
+    return flabels,ImgClt
+
+'''
+    Get Appended list after embedding as mentioned in the paper
+    and get the number of points of each image in a particular cube
+'''
+def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
+    imageCount = 0
+    velist = []
+    for image in images:
+        if imageCount>100:
+            break
+        if imageFileNames[imageCount] not in fileClusterMap.keys():
+            print imageFileNames[imageCount] ," doen't have a mapping in pre processed data"
+            imageCount+=1
+            continue
+        sidelen = 1
+        mappingPointsToCube = [0]*(3*(10**7))
+        while sidelen<=255:
+            for points in ImgClt[imageCount].cluster_centers_:
+                [x,y,z] = points
+                CubeX = int(x/sidelen)*sidelen + (sidelen-(xshift%sidelen))%sidelen
+                CubeY = int(y/sidelen)*sidelen + (sidelen-(yshift%sidelen))%sidelen
+                CubeZ = int(z/sidelen)*sidelen + (sidelen-(zshift%sidelen))%sidelen
+                mappingPointsToCube[formula(CubeX,CubeY,CubeZ,sidelen,xshift,yshift,zshift)]+=(sidelen)
+            sidelen*=2
+        velist.append(mappingPointsToCube)
+        imageCount+=1
+    return velist
+
+
+#load dataset images
 images,imageFileNames = load_images("./database/")
 
-#query image
-imageq = cv2.imread("query.jpg")
-imageq = cv2.cvtColor(imageq, cv2.COLOR_BGR2RGB)
-images.append(imageq)
+#load query images
+queryImages, queryImageNames = load_images("./query/")
 
-#global values to find the random shifts to make
+#get mapping
+fileClusterMap = createMappingOfImageToNClusters()
 
-'''
-store clt of every image in this:
-'''
-ImgClt = {}
+#get average number of cluster per image
+getStats(fileClusterMap)
 
-#these are values to know the weight of each cluster in the cluster representation of image
-flabels =[]
+#get flables and ImgClt
+flabels,ImgClt = getFlablesAndImageClt(images,imageFileNames,fileClusterMap)
 
+#get flables and ImgClt for query images
+flabelsQuery,ImgCltQuery = getFlablesAndImageClt(queryImages,queryImageNames,fileClusterMap)
 
 #this contains the vector generated as discussed in paper after embedding
-
 velist=[]
 
-imageCount = 0
-
-for image in images:
-    plt.figure()
-    plt.axis("off")
-    plt.imshow(image)
-
-    image = image.reshape((image.shape[0] * image.shape[1], 3))
-
-    #clusteing using kmeans first by 36 clusters and then by 9 clusters(mentioned in paper for 8.8 avg)
-    '''
-    Using Silhoutte score to get the best number of clusters
-    can make this distributed for each image can return the best n_cluster!
-    '''
-    n_cluster = 8
-    Prevscore = 2
-    count = 0
-    ElbowPoint = -1
-    for centers in range(2,50):
-        ImgClt[imageCount] = KMeans(n_clusters = centers)
-        labelsP = ImgClt[imageCount].fit_predict(image)
-        silScore = silhouette_score(image,labelsP)
-        print silScore, "center: ",centers
-        if Prevscore - silScore < .02:
-            count+=1
-            if count == 1:
-                ElbowPoint = centers - 1
-            if count > 3:
-                n_cluster = ElbowPoint
-                break
-        else:
-            count = 0
-        n_cluster = centers
-        Prevscore = silScore
-
-    print n_cluster
-    ImgClt[imageCount] = KMeans(n_clusters = n_cluster)
-    ImgClt[imageCount].fit(image)
-
-    print ImgClt[imageCount].cluster_centers_
-    print len(ImgClt[imageCount].labels_)
-
-    #finding the approximate diameter
-
-    labelc = [0]*(n_cluster)
-    for i in ImgClt[imageCount].labels_:
-    	labelc[i]+=1
-    flabels.append(labelc)
-    imageCount+=1
-
-#finding the unique random shift after running through all images
-
-xshift = int(random.uniform(0,255))
-yshift = int(random.uniform(0,255))
-zshift = int(random.uniform(0,255))
+#finding the random shift for each axis
+(xshift,yshift,zshift) = getRandomShifts()
 
 print "Done Creating Cube Embedding, moving on to finding number of points in each cube"
 
-'''
-try to store the values per id obtained for cubes above in this
-'''
+velist = getAppendedVeList(images,ImgClt,xshift,yshift,zshift)
 
-imageId = 0
-
-velist = []
-
-for image in images:
-    sidelen = 1
-    mappingPointsToCube = [0]*(256*256*256*9)
-    while sidelen<=255:
-        for points in ImgClt[imageId].cluster_centers_:
-            [x,y,z] = points
-            CubeX = int(x/sidelen)*sidelen + (sidelen-(xshift%sidelen))%sidelen
-            CubeY = int(y/sidelen)*sidelen + (sidelen-(yshift%sidelen))%sidelen
-            CubeZ = int(z/sidelen)*sidelen + (sidelen-(zshift%sidelen))%sidelen
-            mappingPointsToCube[formula(CubeX,CubeY,CubeZ,sidelen,xshift,yshift,zshift)]+=(sidelen)
-        sidelen*=2
-    velist.append(mappingPointsToCube)
-
-    imageId+=1
+velistQuery = getAppendedVeList(queryImages,ImgCltQuery,xshift,yshift,zshift)
 
 print "Embedding for each image complete.! check once for speed"
 
-for i in range(0,len(velist)):
-	#print len(i)
-	#print the f(p) - f(q) for each image for comparison
-	print "diff from query: ",np.sum(np.absolute(np.subtract(np.array(velist[i]),np.array(velist[len(velist)-1]))))
 
-veq = velist.pop()
-psdL1_mat = libpylshbox.psdlsh()
-psdL1_mat.init_mat(velist, '', 2, 1, 1, 5)
-result = psdL1_mat.query(veq, 2, 10)
-indices, dists = result[0], result[1]
-for i in range(len(indices)):
-    print indices[i], '\t', dists[i]
+'''
+    Finally get f(p)-f(q) for each query image
+'''
+queryImageCount = 0
+for queryImageVector in velistQuery:
+    imageCount = 0
+    for imageVector in velist:
+        print 'diff between ',queryImageNames[queryImageCount], 'and',imageFileNames[imageCount],'is',\
+            np.sum(np.absolute(np.subtract(np.array(imageVector),np.array(queryImageVector))))
+        imageCount+=1
+    queryImageCount+=1
+
+# veq = velist.pop()
+# psdL1_mat = libpylshbox.psdlsh()
+# psdL1_mat.init_mat(velist, '', 2, 1, 1, 5)
+# result = psdL1_mat.query(veq, 2, 10)
+# indices, dists = result[0], result[1]
+# for i in range(len(indices)):
+#     print imageFileNames[i],indices[i], '\t', dists[i]

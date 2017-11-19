@@ -60,9 +60,9 @@ while(1):
     '''
         Send the best n back to the Allocator
     '''
-    print 'response sent: ',response+" "+str(n_cluster)+"\n"
     client.close()
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(('', 8889))
     client.sendall(response+" "+str(n_cluster)+"\n")
+    print 'response sent: ',response+" "+str(n_cluster)+"\n"
     client.close()
