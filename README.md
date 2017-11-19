@@ -7,7 +7,7 @@ The code contains the implementation of idea of the following [paper](https://go
   * The clustered images are embedded into vectors as explained in paper and are sliced and hashed to decrease the vector size.Each image has a unique vector.
   * These vector are made into a matrix and are loaded into LSH and queries are done on lsh to find similar images.
   * We have also computed the f(p)-f(q) values as mentioned in the paper which is a good approximation of emd between images and can be used for comparison.
-* distributedRequester.py and distributedKMeansMainAllocater.py:
+* [distributedRequester.py](distributedRequester.py) and [distributedKMeansMainAllocater.py](distributedKMeansMainAllocator.py):
   * This is the distributed code to find the silhoutte scores of all images in the database(approx 1000 images).
   * The requester  code requests an image path whenever it is free and allocater takes an image for which optimum number of clusters are not known and allocates the path of the image to the requester.
   * This code has been implemented on one machine but it can be extended by changing the object to be sent from image path to the complete image itself or if memory is not a issue each machine itself can have the access to the database locally.
