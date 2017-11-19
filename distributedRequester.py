@@ -18,7 +18,7 @@ while(1):
     '''
     # create an ipv4 (AF_INET) socket object using the tcp protocol (SOCK_STREAM)
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('', 8889))
+    client.connect(('', 8890))
     client.send('0')
     response = client.recv(4096)
     if response == 'no':
@@ -62,7 +62,7 @@ while(1):
     '''
     client.close()
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect(('', 8889))
+    client.connect(('', 8890))
     client.sendall(response+" "+str(n_cluster)+"\n")
     print 'response sent: ',response+" "+str(n_cluster)+"\n"
     client.close()

@@ -9,6 +9,25 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.image as mpimg
 import os
 import math
+import libpylshbox
+
+Hash_count = 0
+
+def Maphash(l):
+    global Hash_count
+    Hash_count += 1
+    print "Vector " , Hash_count," Getting started to hashed and reduced"
+    StartSliceIndex = 0
+    StopSliceIndex=0
+    HashedResults = []
+    while StopSliceIndex < len(l):
+        StopSliceIndex = min(StartSliceIndex+1000,len(l))
+        l_temp = l[StartSliceIndex:StopSliceIndex]
+        StartSliceIndex = StartSliceIndex +1000
+        l_temp = hash(tuple(l_temp))%32416190071
+        HashedResults.append(l_temp)
+    print "Done getting hashed and reduced size"
+    return HashedResults
 
 '''
     A formula to determine the id of starting point of a left top most corner
@@ -92,7 +111,7 @@ def getFlablesAndImageClt(images,imageFileNames,fileClusterMap):
     #store clt(object) of every image in this:
     ImgClt = {}
     for image in images:
-        if imageCount>100:
+        if imageCount>1000:
             break
         image = image.reshape((image.shape[0] * image.shape[1], 3))
         if imageFileNames[imageCount] not in fileClusterMap.keys():
@@ -120,7 +139,7 @@ def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
     imageCount = 0
     velist = []
     for image in images:
-        if imageCount>100:
+        if imageCount>1000:
             break
         if imageFileNames[imageCount] not in fileClusterMap.keys():
             print imageFileNames[imageCount] ," doen't have a mapping in pre processed data"
@@ -136,7 +155,8 @@ def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
                 CubeZ = int(z/sidelen)*sidelen + (sidelen-(zshift%sidelen))%sidelen
                 mappingPointsToCube[formula(CubeX,CubeY,CubeZ,sidelen,xshift,yshift,zshift)]+=(sidelen)
             sidelen*=2
-        velist.append(mappingPointsToCube)
+        mappingPointsHash = Maphash(mappingPointsToCube)
+        velist.append(mappingPointsHash)
         imageCount+=1
     return velist
 
@@ -177,19 +197,24 @@ print "Embedding for each image complete.! check once for speed"
 '''
     Finally get f(p)-f(q) for each query image
 '''
+# queryImageCount = 0
+# for queryImageVector in velistQuery:
+#     imageCount = 0
+#     for imageVector in velist:
+#         print 'diff between ',queryImageNames[queryImageCount], 'and',imageFileNames[imageCount],'is',\
+#             np.sum(np.absolute(np.subtract(np.array(imageVector),np.array(queryImageVector))))
+#         imageCount+=1
+#     queryImageCount+=1
+
+'''
+    LSH
+'''
+psdL1_mat = libpylshbox.psdlsh()
+psdL1_mat.init_mat(velist, '', 20, 4, 1, 5)
 queryImageCount = 0
 for queryImageVector in velistQuery:
-    imageCount = 0
-    for imageVector in velist:
-        print 'diff between ',queryImageNames[queryImageCount], 'and',imageFileNames[imageCount],'is',\
-            np.sum(np.absolute(np.subtract(np.array(imageVector),np.array(queryImageVector))))
-        imageCount+=1
+    result = psdL1_mat.query(queryImageVector, 2, 10)
+    indices, dists = result[0], result[1]
+    for i in range(len(indices)):
+        print "for query image: ",queryImageNames[queryImageCount]," datesetImage",imageFileNames[indices[i]], '\t', dists[i]
     queryImageCount+=1
-
-# veq = velist.pop()
-# psdL1_mat = libpylshbox.psdlsh()
-# psdL1_mat.init_mat(velist, '', 2, 1, 1, 5)
-# result = psdL1_mat.query(veq, 2, 10)
-# indices, dists = result[0], result[1]
-# for i in range(len(indices)):
-#     print imageFileNames[i],indices[i], '\t', dists[i]

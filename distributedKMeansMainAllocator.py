@@ -60,7 +60,7 @@ import socket
 import sys
 
 HOST = ''
-PORT = 8889
+PORT = 8890
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print 'Socket created'
@@ -98,5 +98,5 @@ while(len(notYetKmeaned)>0 or recieved<intialLengthOfNotYetKmeaned):
         If Answer comes write to file
         '''
         recieved+=1
-        print 'response recieved: ',data
+        print 'response recieved: ',data,'count',recieved,'intialLengthOfNotYetKmeaned',intialLengthOfNotYetKmeaned
         fil.write(data+'\n')
