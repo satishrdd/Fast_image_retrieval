@@ -22,14 +22,10 @@ def load_images(folder):
 
 images,imageFileNames = load_images("./database/")
 
-fil = open("database678.txt","w")
+fil = open("databaseSequential.txt","w")
 imageCount = 0
 for image in images:
     image = image.reshape((image.shape[0] * image.shape[1], 3))
-    if imageCount<678:
-        imageCount+=1
-        continue
-    #clusteing using kmeans first by 36 clusters and then by 9 clusters(mentioned in paper for 8.8 avg)
     '''
     Using Silhoutte score to get the best number of clusters
     can make this distributed for each image can return the best n_cluster!
@@ -58,37 +54,36 @@ for image in images:
     fil.write(imageFileNames[imageCount]+" "+str(n_cluster)+"\n")
     imageCount+=1
 
-# images,imageFileNames = load_images("./query/")
-#
-# fil = open("query.txt","w")
-# imageCount = 0
-# for image in images:
-#     image = image.reshape((image.shape[0] * image.shape[1], 3))
-#
-#     #clusteing using kmeans first by 36 clusters and then by 9 clusters(mentioned in paper for 8.8 avg)
-#     '''
-#     Using Silhoutte score to get the best number of clusters
-#     can make this distributed for each image can return the best n_cluster!
-#     '''
-#     n_cluster = 8
-#     Prevscore = 2
-#     count = 0
-#     ElbowPoint = -1
-#     for centers in range(2,50):
-#         clt = KMeans(n_clusters = centers)
-#         labelsP = clt.fit_predict(image)
-#         silScore = silhouette_score(image,labelsP)
-#         if Prevscore - silScore < .018:
-#             count+=1
-#             if count == 1:
-#                 ElbowPoint = centers - 1
-#             if count > 3:
-#                 n_cluster = ElbowPoint
-#                 break
-#         else:
-#             count = 0
-#         n_cluster = centers
-#         Prevscore = silScore
-#     print imageCount,'/',len(images)
-#     fil.write(imageFileNames[imageCount]+" "+str(n_cluster)+"\n")
-#     imageCount+=1
+images,imageFileNames = load_images("./query/")
+
+fil = open("querySequential.txt","w")
+imageCount = 0
+for image in images:
+    image = image.reshape((image.shape[0] * image.shape[1], 3))
+    '''
+    Using Silhoutte score to get the best number of clusters
+    can make this distributed for each image can return the best n_cluster!
+    '''
+    n_cluster = 8
+    Prevscore = 2
+    count = 0
+    ElbowPoint = -1
+    for centers in range(2,50):
+        clt = KMeans(n_clusters = centers)
+        labelsP = clt.fit_predict(image)
+        silScore = silhouette_score(image,labelsP)
+        if Prevscore - silScore < .018:
+            count+=1
+            if count == 1:
+                ElbowPoint = centers - 1
+            if count > 3:
+                n_cluster = ElbowPoint
+                break
+        else:
+            count = 0
+        n_cluster = centers
+        Prevscore = silScore
+
+    print imageCount,'/',len(images)
+    fil.write(imageFileNames[imageCount]+" "+str(n_cluster)+"\n")
+    imageCount+=1
