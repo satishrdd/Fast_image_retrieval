@@ -13,6 +13,8 @@ import libpylshbox
 
 Hash_count = 0
 
+hasSeenImageName = {}
+
 def Maphash(l):
     global Hash_count
     Hash_count += 1
@@ -110,9 +112,18 @@ def getFlablesAndImageClt(images,imageFileNames,fileClusterMap):
     flabels =[]
     #store clt(object) of every image in this:
     ImgClt = {}
+    global hasSeenImageName
     for image in images:
-        if imageCount>1000:
-            break
+        if imageFileNames[imageCount] in hasSeenImageName.keys():
+            ImgClt[imageCount] = hasSeenImageName[imageFileNames[imageCount]]
+            labelc = [0]*(len(ImgClt[imageCount].cluster_centers_))
+            for i in ImgClt[imageCount].labels_:
+            	labelc[i]+=1
+            flabels.append(labelc)
+            print imageFileNames[imageCount],'n_cluster:',len(ImgClt[imageCount].cluster_centers_),\
+            'imageCount:',imageCount,'/',len(images)
+            imageCount+=1
+            continue
         image = image.reshape((image.shape[0] * image.shape[1], 3))
         if imageFileNames[imageCount] not in fileClusterMap.keys():
             print imageFileNames[imageCount] ," doen't have a mapping in pre processed data"
@@ -128,6 +139,7 @@ def getFlablesAndImageClt(images,imageFileNames,fileClusterMap):
         for i in ImgClt[imageCount].labels_:
         	labelc[i]+=1
         flabels.append(labelc)
+        hasSeenImageName[imageFileNames[imageCount]] = ImgClt[imageCount]
         imageCount+=1
     return flabels,ImgClt
 
@@ -139,8 +151,6 @@ def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
     imageCount = 0
     velist = []
     for image in images:
-        if imageCount>1000:
-            break
         if imageFileNames[imageCount] not in fileClusterMap.keys():
             print imageFileNames[imageCount] ," doen't have a mapping in pre processed data"
             imageCount+=1
@@ -162,10 +172,10 @@ def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
 
 
 #load dataset images
-images,imageFileNames = load_images("./database/")
+images,imageFileNames = load_images("./demodatabase/")
 
 #load query images
-queryImages, queryImageNames = load_images("./query/")
+queryImages, queryImageNames = load_images("./demoquery/")
 
 #get mapping
 fileClusterMap = createMappingOfImageToNClusters()
@@ -196,6 +206,7 @@ print "Embedding for each image complete.! check once for speed"
 
 '''
     Finally get f(p)-f(q) for each query image
+    Uncomment this to test
 '''
 # queryImageCount = 0
 # for queryImageVector in velistQuery:
