@@ -11,6 +11,12 @@ import os
 import math
 import libpylshbox
 
+try:
+    os.remove("./database/.DS_Store")
+    os.remove("./query/.DS_Store")
+except OSError:
+    pass
+
 Hash_count = 0
 
 hasSeenImageName = {}
@@ -172,10 +178,10 @@ def getAppendedVeList(images,ImgClt,xshift,yshift,zshift):
 
 
 #load dataset images
-images,imageFileNames = load_images("./demodatabase/")
+images,imageFileNames = load_images("./database/")
 
 #load query images
-queryImages, queryImageNames = load_images("./demoquery/")
+queryImages, queryImageNames = load_images("./query/")
 
 #get mapping
 fileClusterMap = createMappingOfImageToNClusters()
